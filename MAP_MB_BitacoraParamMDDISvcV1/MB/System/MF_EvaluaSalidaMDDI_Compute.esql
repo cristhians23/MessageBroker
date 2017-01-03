@@ -1,0 +1,53 @@
+	BROKER SCHEMA MB.System
+	
+	PATH MB.FrameworkV3;
+
+	CREATE COMPUTE MODULE MF_EvaluaSalidaMDDI_Compute
+		CREATE FUNCTION Main() RETURNS BOOLEAN
+		BEGIN
+	
+		
+		CALL CopyEntireMessage();
+		SET OutputRoot.MQMD.ReplyToQ    = Environment.Variables.Mapeo.Mensaje.ENDPOINT_MDDI;
+		SET OutputRoot.MQMD.ReplyToQMgr = '';
+		PROPAGATE TO TERMINAL 0 DELETE NONE;
+		
+
+		CALL CopyEntireMessage();
+		--Auditoria, evento 3.
+		DECLARE RefEnv 			REFERENCE TO Environment;	
+		DECLARE RefWorkEnv 		REFERENCE TO Environment.Variables.Work;--Variables de uso temporal o auxiliares.		
+		DECLARE RefContextEnv REFERENCE TO Environment.Variables.Context;
+
+
+		
+		SET RefContextEnv.IdAppOrigen 	= 'MBRK';
+		SET RefContextEnv.DesAppOrigen  = 'Message Broker';
+		SET RefContextEnv.IdAppDestino 	= 'MDDI';
+		SET RefContextEnv.DesAppDestino = 'Monitor MDDI';
+		SET RefContextEnv.IdEvento 		= C_EV_REQUEST;
+		SET RefContextEnv.IdError 		= '0';
+		SET RefContextEnv.IdCanal 		= 'MB';
+		CALL BuildAuditoria(RefEnv,C_EV_REQ_FINAL,InputRoot.XMLNSC,NULL,'XMLNSC');
+		--Envio de todos los eventos de Auditoria.
+		DECLARE RefOutputRoot REFERENCE TO OutputRoot;
+		CALL SendAuditoria(RefOutputRoot,Environment.Variables,C_COD_APP);
+		-- el propagate se hace en el metodo sendauditoria		
+		RETURN FALSE;
+		END;
+		
+		CREATE PROCEDURE CopyEntireMessage() BEGIN
+			SET OutputRoot = InputRoot;
+		END;
+
+		CREATE PROCEDURE CopyMessageHeaders() BEGIN
+			DECLARE I INTEGER 1;
+			DECLARE J INTEGER;
+			SET J = CARDINALITY(InputRoot.*[]);
+			WHILE I < J DO
+				SET OutputRoot.*[I] = InputRoot.*[I];
+				SET I = I + 1;
+			END WHILE;
+		END;
+		
+	END MODULE;
